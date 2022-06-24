@@ -44,7 +44,7 @@ func (pow *ProofOfWork) InitData(nonce int) []byte {
 	return data
 }
 
-// Algorithm that check if we have the right hash and if the block wasn't already signed
+// Algorithm that check if there is the right hash and if the block wasn't already signed
 // It will return a nonce as int and byte as hash
 func (pow *ProofOfWork) Run() (int, []byte) {
 	var intHash big.Int
@@ -62,7 +62,7 @@ func (pow *ProofOfWork) Run() (int, []byte) {
 
 		fmt.Printf("\r%x", hash)
 		// If : the result is -1, it will mean that this hash
-		// is actually less than the target we're looking for
+		// is actually less than the target it's looking for
 		// this means that the block has already been signed
 		// Else : increment the nonce in order to find the correct one
 		if intHash.Cmp(pow.Target) == -1 {
@@ -91,7 +91,7 @@ func (pow *ProofOfWork) Validate() bool {
 // Take a int64 number and decode it into bytes
 func ToHex(num int64) []byte {
 	buff := new(bytes.Buffer)
-	// bigEndian signifies how we want to organize our bytes
+	// bigEndian signifies how the bytes gonna be organised
 	err := binary.Write(buff, binary.BigEndian, num)
 
 	if err != nil {
