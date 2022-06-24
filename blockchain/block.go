@@ -1,8 +1,10 @@
 package blockchain
 
-type BlockChain struct {
-	Blocks []*Block
-}
+import (
+	"bytes"
+	"encoding/gob"
+	"log"
+)
 
 type Block struct {
 	Hash     []byte
@@ -24,19 +26,38 @@ func CreateBlock(data string, prevHash []byte) *Block {
 	return block
 }
 
-// Insert the block in the chain
-func (chain *BlockChain) AddBlock(data string) {
-	prevBlock := chain.Blocks[len(chain.Blocks)-1]
-	newBlock := CreateBlock(data, prevBlock.Hash)
-	chain.Blocks = append(chain.Blocks, newBlock)
-}
-
 // Generate the genesis block
 func Genesis() *Block {
 	return CreateBlock("Genesis block", []byte{})
 }
 
-// Init blockchain with the genesis first block
-func InitBlockChain() *BlockChain {
-	return &BlockChain{[]*Block{Genesis()}}
+// Serialize the block because badgerDB only accept slice or arrays of bytes
+func (b *Block) Serialize() []byte {
+	var result bytes.Buffer
+	encoder := gob.NewEncoder(&result)
+
+	err := encoder.Encode(b)
+
+	Catch(err)
+
+	return result.Bytes()
+}
+
+// Deserialize the created slice/array of bytes and transform it to a block
+func Deserialize(data []byte) *Block {
+	var block Block
+
+	decoder := gob.NewDecoder(bytes.NewReader(data))
+
+	err := decoder.Decode(&block)
+
+	Catch(err)
+
+	return &block
+}
+
+func Catch(err error) {
+	if err != nil {
+		log.Panic(err)
+	}
 }
