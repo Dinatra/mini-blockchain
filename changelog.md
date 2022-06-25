@@ -26,8 +26,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Proof of Work algorithm implemented #2 
 - CLI that can helps to add some blocks or visualize them #3 
 - Blocks persistence #3
-
 ## [Unreleased]
 ## [0.1.1]
 ### Added :
 - Add readme and changelog file
+## [0.2.0]
+### Added :
+- Add transaction system without UTXO persistence layer
+- Add new command allowing a user to send tokens into other user
+- Add new command allowing to view the tokens balancr of a user
+### Changed  :
+- Update the way the blockchain was initialized ( init )
+### Removed :
+- Remove the possibility to add some blocks with the CLI because now a transaction system was implemend so the data arent't accessible with the old way because they are replaced by the transactions inside each block.

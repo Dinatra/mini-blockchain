@@ -8,6 +8,8 @@ This is a prototype project whose goal is to implement the basic mechanisms of a
 go run main.go
 
 Usage:
-        add -b BLOCK_DATA : add a block to the chain
-        print : Prints the blocks in the chain
+        getbalance -address ADDRESS : get the balance for an address
+        createblockchain -address ADDRESS : create a blockchain and send genesis block reward to address
+        send -from FROM -to TO -amount AMOUNT : send amount of coins from FROM address to TO address
+        printchain : Prints the blocks in the chain
 ```
