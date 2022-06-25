@@ -1,13 +1,18 @@
 package blockchain
 
 import (
+	"encoding/hex"
 	"fmt"
+	"os"
+	"runtime"
 
 	badger "github.com/dgraph-io/badger/v3"
 )
 
 const (
-	dbPath = "./tmp/blocks"
+	dbPath      = "./tmp/blocks"
+	dbFile      = "./tmp/blocks/MANIFEST"
+	genesisData = "First transaction from the genesis block"
 )
 
 type BlockChain struct {
@@ -21,39 +26,65 @@ type BlockChainIterator struct {
 	Database    *badger.DB
 }
 
-// Init blockchain with the genesis first block
-func InitBlockChain() *BlockChain {
+func DBexists() bool {
+	// Checks if a file named MANIFEST has been created from badger
+	if _, err := os.Stat(dbFile); os.IsNotExist(err) {
+		return false
+	}
+
+	return true
+}
+func ContinueBlockChain(address string) *BlockChain {
+	if DBexists() == false {
+		fmt.Println("No existing blockchain found. Create one first.")
+		runtime.Goexit()
+	}
+
 	var lastHash []byte
 
 	db, err := badger.Open(badger.DefaultOptions(dbPath))
 	Catch(err)
 
 	err = db.Update(func(txn *badger.Txn) error {
-		// At first, check if there is a blockchain stored in the db through "lh" key referencing the genesis block
-		if _, err = txn.Get([]byte("lh")); err == badger.ErrKeyNotFound {
-			fmt.Println("No database has been found")
+		item, err := txn.Get([]byte("lh"))
+		Catch(err)
 
-			genesis := Genesis()
-			fmt.Println("Genesis proved")
-			// The key of the genesis block is its hash and the value is the output of the serialized data of the block
-			err = txn.Set(genesis.Hash, genesis.Serialize())
-			Catch(err)
-			// Set the hash of genesis block as the last hash because he is at this moment the only in the db
-			err = txn.Set([]byte("lh"), genesis.Hash)
+		item.Value(func(val []byte) error {
+			lastHash = val
+			return nil
+		})
 
-			// set the genesis block hash as the lasthash variable and put it to the memory storage
-			lastHash = genesis.Hash
+		return err
+	})
 
-			return err
-		} else {
-			item, err := txn.Get([]byte("lh"))
-			Catch(err)
-			err = item.Value(func(val []byte) error {
-				lastHash = val
-				return nil
-			})
-			return err
-		}
+	chain := BlockChain{lastHash, db}
+
+	return &chain
+}
+
+// Init blockchain with the genesis first block
+func InitBlockChain(address string) *BlockChain {
+	if DBexists() {
+		fmt.Println("Blockchain already exists")
+		runtime.Goexit()
+	}
+	var lastHash []byte
+
+	db, err := badger.Open(badger.DefaultOptions(dbPath))
+	Catch(err)
+
+	err = db.Update(func(txn *badger.Txn) error {
+		cbtx := CoinBaseTx(address, genesisData)
+		genesis := Genesis(cbtx)
+		fmt.Println("Genesis block created successfully")
+		err := txn.Set(genesis.Hash, genesis.Serialize())
+		Catch(err)
+
+		err = txn.Set([]byte("lh"), genesis.Hash)
+
+		lastHash = genesis.Hash
+
+		return err
 	})
 	Catch(err)
 	blockchain := BlockChain{lastHash, db}
@@ -62,7 +93,7 @@ func InitBlockChain() *BlockChain {
 }
 
 // Insert the block in the chain
-func (chain *BlockChain) AddBlock(data string) {
+func (chain *BlockChain) AddBlock(transactions []*Transaction) {
 	var lastHash []byte
 
 	err := chain.Database.View(func(txn *badger.Txn) error {
@@ -80,7 +111,7 @@ func (chain *BlockChain) AddBlock(data string) {
 
 	Catch(err)
 
-	newBlock := CreateBlock(data, lastHash)
+	newBlock := CreateBlock(transactions, lastHash)
 
 	err = chain.Database.Update(func(txn *badger.Txn) error {
 		// Assign the newblock hash to the lasthash key
@@ -122,4 +153,97 @@ func (iter *BlockChainIterator) Next() *Block {
 	iter.currentHash = block.PrevHash
 
 	return block
+}
+
+func (chain *BlockChain) FindUnspentTransactions(address string) []Transaction {
+	var unspentTxs []Transaction
+
+	spentTXOs := make(map[string][]int)
+
+	iter := chain.Iterator()
+
+	for {
+		block := iter.Next()
+
+		for _, tx := range block.Transactions {
+			txID := hex.EncodeToString(tx.ID)
+
+		Outputs:
+			for outIdx, out := range tx.Outputs {
+				if spentTXOs[txID] != nil { // check if its inside the map
+					for _, spentOut := range spentTXOs[txID] {
+						// check if the output is already spent
+						if spentOut == outIdx {
+							continue Outputs
+						}
+					}
+				}
+
+				if out.CanBeUnlocked(address) {
+					// determine how much tokens the user have in the wallet
+					unspentTxs = append(unspentTxs, *tx)
+				}
+
+				if tx.IsCoinbase() == false { // avoid genesis block
+					// find others outputs that are spent by this transaction
+					for _, in := range tx.Inputs {
+						if in.CanUnlock(address) { // check if we can unlock those outputs
+							inTxID := hex.EncodeToString(in.ID)
+							spentTXOs[inTxID] = append(spentTXOs[inTxID], in.Out) // add the output to the map with the index where its appears
+						}
+					}
+				}
+			}
+		}
+
+		// break if we reach the genesis block
+		if len(block.PrevHash) == 0 {
+			break
+		}
+	}
+
+	return unspentTxs // all this unspent transactions are the ones that the user have in the wallet
+}
+
+// find the non consumed outputs of the user
+func (chain *BlockChain) FindUTXO(address string) []TxOutput {
+	var UTXOs []TxOutput
+
+	unspentTransactions := chain.FindUnspentTransactions(address)
+
+	for _, tx := range unspentTransactions {
+		for _, out := range tx.Outputs {
+			if out.CanBeUnlocked(address) {
+				UTXOs = append(UTXOs, out)
+			}
+		}
+	}
+
+	return UTXOs
+}
+
+// Enable us to know if a user can enable a transaction in depend of the tokens of its balance
+func (chain *BlockChain) FindSpendableOutputs(address string, amount int) (int, map[string][]int) {
+	unspentOuts := make(map[string][]int) // unspentOuts is the map with the index of the output that we can use to spend
+	unspentTxs := chain.FindUnspentTransactions(address)
+	accumulated := 0
+
+Work:
+	for _, tx := range unspentTxs {
+		txID := hex.EncodeToString(tx.ID)
+
+		for outIdx, out := range tx.Outputs {
+			// Check if the accumulated is less than the amount that he want to send and if he can unlock the output
+			if out.CanBeUnlocked(address) && accumulated < amount {
+				accumulated += out.Value                              // increment the value that he want to spend
+				unspentOuts[txID] = append(unspentOuts[txID], outIdx) // add it to the unspentOutputs
+
+				if accumulated >= amount {
+					break Work
+				}
+			}
+		}
+	}
+
+	return accumulated, unspentOuts
 }
