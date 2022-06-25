@@ -7,6 +7,7 @@ import (
 	"runtime"
 
 	badger "github.com/dgraph-io/badger/v3"
+	"github.com/kleimak/mini-blockchain/logger"
 )
 
 const (
@@ -43,11 +44,11 @@ func ContinueBlockChain(address string) *BlockChain {
 	var lastHash []byte
 
 	db, err := badger.Open(badger.DefaultOptions(dbPath))
-	Catch(err)
+	logger.Catch(err)
 
 	err = db.Update(func(txn *badger.Txn) error {
 		item, err := txn.Get([]byte("lh"))
-		Catch(err)
+		logger.Catch(err)
 
 		item.Value(func(val []byte) error {
 			lastHash = val
@@ -71,14 +72,14 @@ func InitBlockChain(address string) *BlockChain {
 	var lastHash []byte
 
 	db, err := badger.Open(badger.DefaultOptions(dbPath))
-	Catch(err)
+	logger.Catch(err)
 
 	err = db.Update(func(txn *badger.Txn) error {
 		cbtx := CoinBaseTx(address, genesisData)
 		genesis := Genesis(cbtx)
 		fmt.Println("Genesis block created successfully")
 		err := txn.Set(genesis.Hash, genesis.Serialize())
-		Catch(err)
+		logger.Catch(err)
 
 		err = txn.Set([]byte("lh"), genesis.Hash)
 
@@ -86,7 +87,7 @@ func InitBlockChain(address string) *BlockChain {
 
 		return err
 	})
-	Catch(err)
+	logger.Catch(err)
 	blockchain := BlockChain{lastHash, db}
 
 	return &blockchain
@@ -99,7 +100,7 @@ func (chain *BlockChain) AddBlock(transactions []*Transaction) {
 	err := chain.Database.View(func(txn *badger.Txn) error {
 		// Get the lasthash from the lastblock
 		item, err := txn.Get([]byte("lh"))
-		Catch(err)
+		logger.Catch(err)
 
 		err = item.Value(func(val []byte) error {
 			lastHash = val
@@ -109,7 +110,7 @@ func (chain *BlockChain) AddBlock(transactions []*Transaction) {
 		return err
 	})
 
-	Catch(err)
+	logger.Catch(err)
 
 	newBlock := CreateBlock(transactions, lastHash)
 
@@ -117,14 +118,14 @@ func (chain *BlockChain) AddBlock(transactions []*Transaction) {
 		// Assign the newblock hash to the lasthash key
 		// it help to easily get it out of database and derive a new block into it
 		err := txn.Set(newBlock.Hash, newBlock.Serialize())
-		Catch(err)
+		logger.Catch(err)
 		err = txn.Set([]byte("lh"), newBlock.Hash)
 
 		chain.LastHash = newBlock.Hash
 
 		return err
 	})
-	Catch(err)
+	logger.Catch(err)
 }
 
 func (chain *BlockChain) Iterator() *BlockChainIterator {
@@ -148,7 +149,7 @@ func (iter *BlockChainIterator) Next() *Block {
 
 		return err
 	})
-	Catch(err)
+	logger.Catch(err)
 
 	iter.currentHash = block.PrevHash
 

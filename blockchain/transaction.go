@@ -7,6 +7,8 @@ import (
 	"encoding/hex"
 	"fmt"
 	"log"
+
+	"github.com/kleimak/mini-blockchain/logger"
 )
 
 type Transaction struct {
@@ -49,7 +51,7 @@ func (tx *Transaction) SetID() {
 
 	enc := gob.NewEncoder(&encoded)
 	err := enc.Encode(tx)
-	Catch(err)
+	logger.Catch(err)
 
 	hash = sha256.Sum256(encoded.Bytes())
 	tx.ID = hash[:]
@@ -78,12 +80,13 @@ func NewTransaction(from string, to string, amount int, chain *BlockChain) *Tran
 	acc, validOutputs := chain.FindSpendableOutputs(from, amount)
 
 	if acc < amount {
-		log.Panic("Error: %s has only %d tokens\n", from, acc) // account doesnt have enough tokens
+		fmt.Printf("User %v has only %v tokens\n", from, acc) // account doesnt have enough tokens
+		log.Panic("ERROR: Not enough funds")
 	}
 
 	for txid, outs := range validOutputs {
 		txID, err := hex.DecodeString(txid)
-		Catch(err)
+		logger.Catch(err)
 
 		for _, out := range outs {
 			input := TxInput{txID, out, from} // reference the outputs into the inputs (creating input for all the unspent output of the sender)

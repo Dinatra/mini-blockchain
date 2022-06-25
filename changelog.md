@@ -39,3 +39,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Update the way the blockchain was initialized ( init )
 ### Removed :
 - Remove the possibility to add some blocks with the CLI because now a transaction system was implemend so the data arent't accessible with the old way because they are replaced by the transactions inside each block.
+## [0.2.1]
+
+Changed : 
+- Updating error handling and fixing insufficient balance error bugs

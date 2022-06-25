@@ -3,12 +3,12 @@ package main
 import (
 	"flag"
 	"fmt"
-	"log"
 	"os"
 	"runtime"
 	"strconv"
 
 	"github.com/kleimak/mini-blockchain/blockchain"
+	"github.com/kleimak/mini-blockchain/logger"
 )
 
 type CommandLine struct {
@@ -102,16 +102,16 @@ func (cli *CommandLine) run() {
 	switch os.Args[1] {
 	case "createblockchain":
 		err := createBlockchainCommand.Parse(os.Args[2:])
-		panicLog(err)
+		logger.Catch(err)
 	case "send":
 		err := sendCommand.Parse(os.Args[2:])
-		panicLog(err)
+		logger.Catch(err)
 	case "getbalance":
 		err := getBalanceCommand.Parse(os.Args[2:])
-		panicLog(err)
+		logger.Catch(err)
 	case "printchain":
 		err := printChainCommand.Parse(os.Args[2:])
-		panicLog(err)
+		logger.Catch(err)
 	default:
 		cli.printUsage()
 		runtime.Goexit()
@@ -153,10 +153,4 @@ func main() {
 	cli := CommandLine{}
 
 	cli.run()
-}
-
-func panicLog(err error) {
-	if err != nil {
-		log.Panic(err)
-	}
 }
