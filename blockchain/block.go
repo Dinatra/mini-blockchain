@@ -4,7 +4,8 @@ import (
 	"bytes"
 	"crypto/sha256"
 	"encoding/gob"
-	"log"
+
+	"github.com/kleimak/mini-blockchain/logger"
 )
 
 type Block struct {
@@ -53,7 +54,7 @@ func (b *Block) Serialize() []byte {
 
 	err := encoder.Encode(b)
 
-	Catch(err)
+	logger.Catch(err)
 
 	return result.Bytes()
 }
@@ -66,13 +67,7 @@ func Deserialize(data []byte) *Block {
 
 	err := decoder.Decode(&block)
 
-	Catch(err)
+	logger.Catch(err)
 
 	return &block
-}
-
-func Catch(err error) {
-	if err != nil {
-		log.Panic(err)
-	}
 }
